@@ -1,6 +1,9 @@
-# Coding Agent Environment — Windows AMD64
+# Coding Agent Environment — Windows AMD64 (Previous)
 
-This document describes the hardware and runtime constraints of the **current** GitHub Copilot Coding Agent environment.
+> **This document covers the previous Windows/AMD64 environment.**  
+> The current Windows/ARM64 environment is documented in **[`environment-windows-arm.md`](./environment-windows-arm.md)**.
+
+This document describes the hardware and runtime constraints of the **previous** GitHub Copilot Coding Agent environment.
 
 > **Note:** The previous Windows/ARM64 environment is documented in [`environment-windows-arm.md`](./environment-windows-arm.md).  
 > **Software environment** (languages, compilers, tools): See [`environment-windows-amd64-software.md`](./environment-windows-amd64-software.md).
