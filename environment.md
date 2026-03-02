@@ -54,7 +54,7 @@ The sections below document the results of stress tests run to validate (or refu
 
 ---
 
-### CPU Test — Multiprocessing & Threading
+### CPU Test — Multiprocessing & Threading (Session 1)
 
 **Method:** Python `multiprocessing` and `threading` modules used to launch one worker per logical CPU, each burning CPU for 1 second.
 
@@ -69,11 +69,67 @@ The sections below document the results of stress tests run to validate (or refu
 - Multiprocessing wall time of ~1.01 s for 4 × 1 s burn tasks confirms that all 4 logical CPUs are genuinely available and run in parallel.
 - Python threads: the GIL limits true CPU-bound parallelism in Python threads, but the OS still scheduled them across cores (wall ≈ 1.08 s rather than 4 s).
 
-**Conclusion:** The `lscpu` report is accurate. We have **2 physical cores × 2 threads/core = 4 logical CPUs**, all usable simultaneously.
+**Conclusion (Session 1):** The `lscpu` report is accurate. We have **2 physical cores × 2 threads/core = 4 logical CPUs**, all usable simultaneously.
 
 ---
 
-### RAM Tests — Gradual Allocation
+### CPU Test — Deep Performance Characterisation (Session 2)
+
+To avoid Python's GIL and measure true hardware behaviour, a **C binary** (compiled with `gcc -O2 -march=native`) was used for all CPU benchmarks. Tests were run with CPU affinity pinning via `taskset`.
+
+#### 1. Throughput Scaling (C benchmark, no GIL)
+
+Each worker executes 200 million floating-point `sqrt` operations. N workers are launched simultaneously. The key metric is **throughput speedup** = (N × serial time) / wall-clock time.
+
+| Workers (N) | Avg wall time | Throughput speedup | Efficiency |
+|-------------|--------------|-------------------|-----------|
+| 1           | 1.653 s      | 1.00×             | 100%      |
+| 2           | 1.656 s      | **2.00×**         | 100%      |
+| 3           | 1.685 s      | **2.94×**         | 98%       |
+| 4           | 1.692 s      | **3.91×**         | 98%       |
+
+Wall-clock time is nearly constant from N=1 to N=4 (only +2.3%). All 4 workers run simultaneously — no queuing. Throughput scales near-linearly.
+
+#### 2. CPU Affinity Pinning — Same-Core vs Different-Core
+
+Workers were pinned to specific logical CPUs using `taskset`. `/proc/cpuinfo` reports CPU 0 & 1 share physical core 0, and CPU 2 & 3 share physical core 1.
+
+**Compute-bound test (FP sqrt, 300M iterations):**
+
+| Configuration                            | Wall time | Overhead vs solo |
+|------------------------------------------|----------|-----------------|
+| 1 worker on CPU 0 (baseline)             | 2.479 s  | —               |
+| 2 workers: CPU 0 + CPU 1 (same phys core)| 2.528 s  | **+2.0%**       |
+| 2 workers: CPU 0 + CPU 2 (diff phys core)| 2.482 s  | **+0.1%**       |
+| 4 workers: CPU 0+1+2+3 (all)             | 2.550 s  | **+2.9%**       |
+
+Only 2% overhead even when two workers share the same physical core. With true Hyper-Threading one typically sees 30–50% slowdown for compute-bound work on a shared core. This indicates the **hypervisor allocates each vCPU as an independent execution unit**.
+
+**Memory bandwidth test (32 MB working-set, cache-stride reads):**
+
+| Configuration                            | Bandwidth    | Ratio vs solo |
+|------------------------------------------|-------------|--------------|
+| 1 worker on CPU 0                        | 30.93 GB/s  | 1.000        |
+| 2 workers: CPU 0 + CPU 1 (same phys core)| 22.10 GB/s each | **0.715** |
+| 2 workers: CPU 0 + CPU 2 (diff phys core)| 26.16 GB/s each | 0.846    |
+
+Memory bandwidth shows moderate degradation (28%) when two workers are assigned to the same physical core's logical CPUs, compared to 15% degradation across different cores. This is the only measurable sign of resource sharing — likely L2/L3 cache and memory-controller contention — consistent with real HT architecture at the memory subsystem level.
+
+#### Summary — True CPU Topology
+
+| Characteristic | Observed |
+|---------------|---------|
+| Logical CPUs | **4** |
+| Compute-bound throughput scaling | **Near-linear up to 4** (3.91× at N=4) |
+| Same-core compute overhead | **2%** (vs ~30–50% expected for real HT) |
+| Same-core memory-BW penalty | **28%** (moderate — cache sharing present) |
+| Different-core memory-BW penalty | **15%** (DRAM bandwidth contention) |
+
+**Conclusion:** The 4 logical CPUs behave as **near-independent execution units** for compute-bound work. The hypervisor presents the two HT threads of each physical core as distinct, non-competing vCPUs. Memory-bandwidth-bound workloads do see modest contention between HT siblings, which is the only evidence of the underlying 2-core × 2-HT topology. For practical purposes, **all 4 vCPUs deliver full independent compute throughput simultaneously**.
+
+---
+
+### RAM Tests — Gradual Allocation (Session 1)
 
 Allocations were done by creating a `bytearray` and touching every page (4 KB stride) to force actual physical memory mapping.
 
@@ -89,11 +145,38 @@ Allocations were done by creating a `bytearray` and touching every page (4 KB st
 **Hypothesis tested:** An 8 GB hard ceiling on usable RAM.
 **Result: REFUTED.** No enforced memory limit was found. 8, 12, 14, and even 15 GB allocations all succeeded. Allocations above ~13 GB begin to spill into the 3 GB swap partition, but no hard cap or `MemoryError` was triggered.
 
-**Conclusion:** The full ~15 GiB RAM (plus 3 GiB swap) is accessible. There is **no hidden 8 GB RAM barrier**.
+**Conclusion (Session 1):** The full ~15 GiB RAM (plus 3 GiB swap) is accessible. There is **no hidden 8 GB RAM barrier**.
 
 ---
 
-### Disk Tests — Multiple Small Files & Single Large File
+### RAM Tests — Exhaustion to OOM (Session 2)
+
+Testing continued beyond 15 GB to find the exact point where the Linux OOM-killer fires. Each test started from a clean swap state (`swapoff -a && swapon -a`). Pages were touched at 4 KB stride to guarantee physical allocation. Total addressable memory = **15,990 MB RAM + 3,071 MB swap = 19,061 MB (~18.6 GB)**.
+
+| Test size | Outcome | Swap used / free | Notes |
+|-----------|---------|-----------------|-------|
+| **16.0 GB** | ✅ Success | 2,253 MB used / 818 MB free | —    |
+| **16.5 GB** | ✅ Success | 2,710 MB used / 361 MB free | —    |
+| **16.75 GB**| ✅ Success | 3,011 MB used / **60 MB free** | Nearly full swap |
+| **16.9 GB** | ✅ Success | **3,071 MB used / 0 MB free** | **Swap 100% exhausted** |
+| **17.0 GB** | ❌ **OOM-killed** (exit 137 / SIGKILL) | — | Kernel OOM-killer fired |
+
+**`dmesg` evidence for 17 GB OOM:**
+```
+python3 invoked oom-killer: gfp_mask=0x140cca(GFP_HIGHUSER_MOVABLE|__GFP_COMP)
+Out of memory: Killed process (python3) total-vm:17845648kB, anon-rss:15282544kB
+```
+
+**Gradual memory pressure observations (16.5 GB test, 256 MB reporting intervals):**
+- RAM stays at ~160–380 MB available throughout (kernel aggressively swaps out caches)
+- Swap usage climbs steadily from ~750 MB → 1,200 MB → 2,700 MB as allocation fills RAM
+- No sudden cutoff or artificial throttle — swap fills linearly
+
+**Conclusion:** The practical maximum allocatable memory is approximately **16.9 GB** (RAM 15.99 GB + Swap 3.07 GB = 19.06 GB total, minus ~2.16 GB for OS + process overhead). Attempting 17.0 GB triggers the Linux OOM-killer. There is no artificial limit below the hardware ceiling — the full RAM+swap is usable up to the true physical boundary.
+
+---
+
+### Disk Tests — Multiple Small Files & Single Large File (Session 1)
 
 #### Multiple files (100 MB each)
 
@@ -121,4 +204,33 @@ No errors at any point. Written across individual files, the 14 GB barrier hypot
 **Hypothesis tested:** Only ~14 GB of disk space is actually usable.
 **Result: REFUTED.** A single 20 GB file was written successfully without any error. `df` confirms that 71 GB of the 91 GB advertised free space remained after the 20 GB write. All space appears genuinely accessible.
 
-**Conclusion:** The root filesystem (`/dev/root`) truly has ~91 GB free at session start. There is **no hidden 14 GB disk limit**.
+**Conclusion (Session 1):** The root filesystem (`/dev/root`) truly has ~91 GB free at session start. There is **no hidden 14 GB disk limit**.
+
+---
+
+### Disk Test — Full Exhaustion (Session 2)
+
+**Method:** Write 1 GB files sequentially to `/tmp/disk_fill/` until only 500 MB remains (safety margin to keep the system functional). Each file was `fsync`'d after writing.
+
+**Starting state:** 91.4 GB available on `/dev/root`.
+
+| Milestone         | Files written | Used disk | Available | Write speed |
+|-------------------|--------------|----------|-----------|------------|
+| 10 GB written     | File 10      | 62.9 GB  | 81.4 GB   | ~330 MB/s  |
+| 20 GB written     | File 20      | 72.9 GB  | 71.4 GB   | ~331 MB/s  |
+| 30 GB written     | File 30      | 82.9 GB  | 61.4 GB   | ~331 MB/s  |
+| 40 GB written     | File 40      | 92.9 GB  | 51.4 GB   | ~330 MB/s  |
+| 50 GB written     | File 50      | 102.9 GB | 41.4 GB   | ~331 MB/s  |
+| 60 GB written     | File 60      | 112.9 GB | 31.4 GB   | ~331 MB/s  |
+| 70 GB written     | File 70      | 122.9 GB | 21.4 GB   | ~331 MB/s  |
+| 80 GB written     | File 80      | 132.9 GB | 11.4 GB   | ~331 MB/s  |
+| 90 GB written     | File 90      | 142.9 GB | 1.4 GB    | ~331 MB/s  |
+| 90.86 GB (**stopped**) | File 91 | 143.8 GB | **0.5 GB** | ~354 MB/s |
+
+**Observations:**
+- Total written: **90.86 GB** (99.5% of available space used)
+- Write speed was **consistently ~330 MB/s** throughout the entire fill — no slowdown at any point
+- No `OSError` or throttling was observed at any fill level
+- After cleanup, disk returned to 91.4 GB available — no permanent impact
+
+**Conclusion:** The full ~91.4 GB of free disk space on `/dev/root` is **entirely usable**. Write performance remains constant from empty to near-full. There are **no artificial quotas, no hidden disk limits, and no speed throttling** at any fill level.
