@@ -5,4 +5,4 @@ on:
 
 jobs:
   copilot-setup-steps:
-    runs-on: ubuntu-22.04-arm
+    runs-on: windows-latest
