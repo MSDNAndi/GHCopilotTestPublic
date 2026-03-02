@@ -5,4 +5,4 @@ on:
 
 jobs:
   copilot-setup-steps:
-    runs-on: windows-latest-arm
+    runs-on: windows-11-arm
