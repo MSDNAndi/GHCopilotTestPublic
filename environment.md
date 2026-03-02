@@ -234,3 +234,77 @@ No errors at any point. Written across individual files, the 14 GB barrier hypot
 - After cleanup, disk returned to 91.4 GB available — no permanent impact
 
 **Conclusion:** The full ~91.4 GB of free disk space on `/dev/root` is **entirely usable**. Write performance remains constant from empty to near-full. There are **no artificial quotas, no hidden disk limits, and no speed throttling** at any fill level.
+
+---
+
+### Disk Test — True ENOSPC Exhaustion (Session 4)
+
+**Goal:** Fill all user-available space to the very last byte and document the exact ENOSPC boundary.
+
+**Method:** Write files to `/tmp/disk_exhaust/` with adaptive chunk sizes as space shrinks — switching from 1 GB → 100 MB → 10 MB → 1 MB → 128 KB → 4 KB chunks as `f_bavail` (user-available blocks) decreases. After ENOSPC, probe with decreasing sizes (4 KB → 1 B) to confirm the hard boundary. All files `fsync`'d after each write.
+
+#### Filesystem layout
+
+| Metric | Value |
+|--------|-------|
+| Filesystem total size | 144.26 GB |
+| In use at test start | 52.89 GB |
+| **User-available at start** (`df` Avail) | **91.3529 GB** (98,089,472,000 bytes) |
+| Root-reserved blocks | 4,096 blocks = **16 MB** (0.01% of total) |
+| Inodes at start | 19,529,728 total / 18,554,858 free |
+
+> `df` already subtracts the 16 MB root-reserved blocks; the **91.35 GB reported by `df` is the true user-available space**.
+
+#### Fill progress (every 10 GB)
+
+| Written total | User-avail remaining | Chunk size |
+|--------------|---------------------|-----------|
+| 10 GB        | 81.35 GB            | 1 GB       |
+| 20 GB        | 71.35 GB            | 1 GB       |
+| 30 GB        | 61.35 GB            | 1 GB       |
+| 40 GB        | 51.35 GB            | 1 GB       |
+| 50 GB        | 41.35 GB            | 1 GB       |
+| 60 GB        | 31.35 GB            | 1 GB       |
+| 70 GB        | 21.35 GB            | 1 GB       |
+| 80 GB        | 11.35 GB            | 1 GB       |
+| 90 GB        | 1.34 GB             | 100 MB     |
+| 91.16 GB     | 191 MB              | 1 MB       |
+| 91.35 GB     | ~4 KB               | 4 KB       |
+| **91.3509 GB** | **0 bytes** | ❌ **ENOSPC** |
+
+#### ENOSPC details
+
+| Metric | Value |
+|--------|-------|
+| Total written before ENOSPC | **91.3509 GB** |
+| User-avail before final write | 4,096 bytes (1 block) |
+| Chunk size attempted | 4,096 bytes |
+| `errno` | **28 (ENOSPC)** |
+| `f_bavail` at failure | **0** (no user blocks remain) |
+| `f_bfree` at failure | 4,096 blocks = 16,777,216 bytes (root-reserved headroom intact) |
+| Unwritable remainder | ~2 MB (filesystem metadata overhead for 1,000+ test files) |
+
+#### Post-ENOSPC probe
+
+After ENOSPC was triggered, attempts to write any amount of data as a non-root user all failed immediately:
+
+| Probe size | Result |
+|-----------|--------|
+| 4,096 bytes | ❌ ENOSPC |
+| 1,024 bytes | ❌ ENOSPC |
+| 512 bytes   | ❌ ENOSPC |
+| 64 bytes    | ❌ ENOSPC |
+| 1 byte      | ❌ ENOSPC |
+
+At the point of ENOSPC, `f_bavail = 0` — every single user-available block is consumed. The kernel will not grant even a 1-byte write. The 16 MB root-reserved space (`f_bfree - f_bavail`) remains intact and is inaccessible to non-root processes.
+
+**After cleanup:** `rm -rf /tmp/disk_exhaust` restored the full 91.3529 GB — no permanent impact.
+
+#### Conclusion
+
+The user-available disk space on `/dev/root` is exactly **91.35 GB** (`df` Avail). This is the hard ceiling for non-root writes. Key findings:
+
+- The filesystem has **16 MB reserved for root** (`tune2fs` reserved-block-count = 4,096 blocks × 4 KB). This is already excluded from the `df` Avail figure.
+- A user can consume **all 91.35 GB** — there is no hidden per-user quota or artificial sub-limit.
+- ENOSPC fires when `f_bavail` (user free blocks) reaches **0**. The very last bytes are consumed by filesystem metadata (directory entries, inodes) for test files — approximately **2 MB** of the 91.35 GB is consumed by metadata when writing many small files near the boundary.
+- Write speed remained **~330 MB/s** throughout the fill — no slowdown even within the last 100 MB.
