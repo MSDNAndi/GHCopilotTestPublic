@@ -1,6 +1,7 @@
-# Coding Agent Software Environment — Ubuntu AMD64 (Current)
+# Coding Agent Software Environment — Ubuntu AMD64 (Previous)
 
-> **This document covers the current Ubuntu/AMD64 software environment.**  
+> **This document covers the previous Ubuntu/AMD64 runner software environment.**  
+> The current "slim" container software environment is documented in **[`environment-slim-software.md`](./environment-slim-software.md)**.  
 > The previous Windows/ARM64 software environment is documented in **[`environment-windows-arm-software.md`](./environment-windows-arm-software.md)**.
 
 This document is a factual inventory of software **pre-installed and available out of the box** in the Ubuntu/AMD64 GitHub Copilot Coding Agent session.

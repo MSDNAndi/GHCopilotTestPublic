@@ -1,6 +1,7 @@
-# Coding Agent Environment — Ubuntu AMD64 (Current)
+# Coding Agent Environment — Ubuntu AMD64 (Previous)
 
-> **This document covers the current Ubuntu/AMD64 environment.**  
+> **This document covers the previous Ubuntu/AMD64 runner environment.**  
+> The current "slim" container environment is documented in **[`environment-slim.md`](./environment-slim.md)**.  
 > The previous Windows/ARM64 environment is documented in **[`environment-windows-arm.md`](./environment-windows-arm.md)**.
 
 This document describes the hardware and runtime constraints of the Ubuntu/AMD64 GitHub Copilot Coding Agent environment.
