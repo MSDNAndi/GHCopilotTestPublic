@@ -50,17 +50,45 @@ Microsoft Cobalt 100 is a custom ARM64 server chip (comparable to Neoverse N2 / 
 
 ## Storage
 
-| Property            | Value                                              |
-|---------------------|----------------------------------------------------|
-| Volume              | `C:` (NTFS, `WindowsName`)                         |
-| Physical disk model | Microsoft NVMe Direct Disk v2                      |
-| Bus type            | NVMe                                               |
-| Media type          | SSD                                                |
-| Disk health         | Healthy / Operational                              |
-| Total capacity      | 255.4 GB                                           |
-| Used at session start | ~132.7 GB                                        |
-| **Free at session start** | **~122.75 GB**                             |
-| Partition layout    | GPT — EFI (99 MB), OS (255.4 GB)                  |
+### Physical Disks
+
+Two physical disks are visible to the VM:
+
+| Disk | Model                        | Interface | Media | Size     | Partitions | Role              |
+|------|------------------------------|-----------|-------|----------|------------|-------------------|
+| 0    | Microsoft NVMe Direct Disk v2 | NVMe/SCSI | SSD   | 220.0 GB | **0 — completely unpartitioned** | Unassigned raw disk |
+| 1    | Microsoft Virtual Disk        | SAS/SCSI  | Fixed | 256.0 GB | 4          | OS / boot disk    |
+
+> **Disk 0 (NVMe)** is a raw, unpartitioned NVMe SSD. It has no volumes, no drive letter, and no filesystem — it is entirely unused raw storage accessible only through low-level APIs. Firmware revision: `NVMDV002`. Serial: `708B_3835_5C05_4C56_AA32_748D_948F_8EB1`.
+>
+> **Disk 1 (Virtual SAS)** is a Hyper-V virtual disk hosting the entire OS.
+
+### Disk 1 Partition Layout (GPT)
+
+| Partition | Type          | Size    | Offset  | Filesystem | Drive | Label    | Notes           |
+|-----------|---------------|---------|---------|------------|-------|----------|-----------------|
+| 1         | Reserved      | 16 MB   | 1 MB    | —          | —     | —        | GPT reserved    |
+| 2         | Recovery      | 450 MB  | 17 MB   | NTFS       | —     | Recovery | Hidden, WinRE   |
+| 3         | System (EFI)  | 99 MB   | 467 MB  | FAT32      | —     | —        | EFI boot files  |
+| 4         | Primary (OS)  | 255.4 GB| 566 MB  | NTFS       | `C:`  | Windows  | Boot / OS volume |
+
+### C: Volume (NTFS)
+
+| Property                      | Value                      |
+|-------------------------------|----------------------------|
+| Volume label                  | Windows                    |
+| Filesystem                    | NTFS 3.1 (LFS 2.0)         |
+| Volume serial number          | `FA1AA1B7`                 |
+| Cluster size                  | 4,096 bytes (4 KB)         |
+| Bytes per sector              | 512                        |
+| Bytes per physical sector     | 4,096                      |
+| Total clusters                | 66,963,963                 |
+| Total capacity                | 274,284,392,448 bytes (255.45 GB) |
+| MFT valid data length         | ~1,012 MB                  |
+| MFT zone size                 | ~200 MB                    |
+| Total reserved (NTFS)         | ~378 MB                    |
+| Volume storage reserve        | ~274 MB                    |
+| **Free at session start**     | **~119–123 GB** (varies by session) |
 
 ---
 
