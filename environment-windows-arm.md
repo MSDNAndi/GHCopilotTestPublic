@@ -2,7 +2,8 @@
 
 This document describes the hardware and runtime constraints of the **current** GitHub Copilot Coding Agent environment.
 
-> **Note:** The previous Linux/AMD64 environment is documented in [`environment.md`](./environment.md).
+> **Note:** The previous Linux/AMD64 environment is documented in [`environment.md`](./environment.md).  
+> **Software environment** (languages, compilers, tools): See [`environment-windows-arm-software.md`](./environment-windows-arm-software.md).
 
 ---
 
