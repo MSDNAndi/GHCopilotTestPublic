@@ -1,12 +1,12 @@
-# Coding Agent Software Environment — Windows ARM64
+# Coding Agent Software Environment — Windows ARM64 (Previous)
 
-> **This document covers the current Windows/ARM64 software environment.**  
-> The previous Windows/AMD64 software environment is documented in **[`environment-windows-amd64-software.md`](./environment-windows-amd64-software.md)**.
+> **This document covers the previous Windows/ARM64 software environment.**  
+> The current Ubuntu/AMD64 software environment is documented in **[`environment-ubuntu-amd64-software.md`](./environment-ubuntu-amd64-software.md)**.
 
 This document is a factual inventory of software **pre-installed and available out of the box** in the Windows/ARM64 GitHub Copilot Coding Agent session.
 
 > **Hardware & OS environment:** See [`environment-windows-arm.md`](./environment-windows-arm.md)  
-> **Previous (Linux/AMD64) environment:** See [`environment.md`](./environment.md)
+> **Current (Ubuntu/AMD64) environment:** See [`environment-ubuntu-amd64.md`](./environment-ubuntu-amd64.md)
 
 ---
 
