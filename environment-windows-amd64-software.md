@@ -1,9 +1,9 @@
-# Coding Agent Software Environment — Windows AMD64
+# Coding Agent Software Environment — Windows AMD64 (Previous)
 
-This document is a factual inventory of software **pre-installed and available out of the box** in the current GitHub Copilot Coding Agent session. Everything listed here is already present — nothing requires installation.
+This document is a factual inventory of software **pre-installed and available out of the box** in the previous Windows/AMD64 GitHub Copilot Coding Agent session.
 
 > **Hardware & OS environment:** See [`environment-windows-amd64.md`](./environment-windows-amd64.md)  
-> **Previous (Windows/ARM64) environment:** See [`environment-windows-arm.md`](./environment-windows-arm.md)
+> **Current (Windows/ARM64) environment:** See [`environment-windows-arm-software.md`](./environment-windows-arm-software.md)
 
 ---
 
