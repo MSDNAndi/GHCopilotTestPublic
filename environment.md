@@ -1,6 +1,7 @@
-# Coding Agent Environment — Linux AMD64 (Previous)
+# Coding Agent Environment — Linux AMD64 (Session 1–4 Archive)
 
-> **This document covers the previous Linux/AMD64 environment.**
+> **This document archives Sessions 1–4 of the Linux/AMD64 environment.**
+> The current Ubuntu/AMD64 environment is documented in **[`environment-ubuntu-amd64.md`](./environment-ubuntu-amd64.md)**.  
 > The current Windows/ARM64 environment is documented in **[`environment-windows-arm.md`](./environment-windows-arm.md)**.
 
 This document describes the hardware and timeout constraints of the environment in which the GitHub Copilot Coding Agent runs.
